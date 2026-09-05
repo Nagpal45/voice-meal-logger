@@ -1,11 +1,12 @@
 const express = require('express');
+require('dotenv').config();
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fs = require('fs');
 const { AccessToken } = require('livekit-server-sdk');
 
 const Meal = require('./models/Meal');
-const foodsData = JSON.parse(fs.readFileSync('./foods.json', 'utf8'));
+const foodsData = JSON.parse(fs.readFileSync(require('path').join(__dirname, 'foods.json'), 'utf8'));
 
 const app = express();
 app.use(cors());
@@ -41,6 +42,10 @@ const requireUser = (req, res, next) => {
 
 // --- Macro Calculation Math ---
 const calculateMacros = (foodIdOrName, quantity, unitName) => {
+  if (typeof foodIdOrName !== 'string' || typeof unitName !== 'string' || !Number.isFinite(Number(quantity)) || Number(quantity) <= 0) {
+    return null;
+  }
+
   const food = foodsData.foods.find(f => 
     f.id === foodIdOrName.toLowerCase() || 
     f.name.toLowerCase() === foodIdOrName.toLowerCase() ||
@@ -48,7 +53,7 @@ const calculateMacros = (foodIdOrName, quantity, unitName) => {
   );
   if (!food) return null;
 
-  const unit = food.units.find(u => u.name === unitName.toLowerCase());
+  const unit = food.units.find(u => u.name.toLowerCase() === unitName.toLowerCase());
   if (!unit) return null;
 
   const totalGrams = quantity * unit.grams;
@@ -68,12 +73,13 @@ const calculateMacros = (foodIdOrName, quantity, unitName) => {
 };
 
 // --- Routes ---
-app.get('/api/livekit-token', requireUser, (req, res) => {
+app.get('/api/livekit-token', requireUser, async (req, res) => {
   const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
     identity: `user-${req.userId}`,
   });
   at.addGrant({ roomJoin: true, room: `room-${req.userId}`, canPublish: true, canSubscribe: true });
-  res.json({ token: at.toJwt() });
+  const token = await at.toJwt();
+  res.json({ token: String(token) });
 });
 
 app.get('/api/meals', requireUser, async (req, res) => {
@@ -99,6 +105,7 @@ app.put('/api/meals/:id', requireUser, async (req, res) => {
   if (!meal) return res.status(404).json({ error: 'Meal not found' });
 
   const foodData = calculateMacros(meal.foodId, quantity, unitName || meal.unit);
+  if (!foodData) return res.status(400).json({ error: 'Invalid quantity or unit' });
   meal.quantity = quantity;
   if (unitName) meal.unit = foodData.unit;
   meal.macros = foodData.macros;
@@ -116,4 +123,8 @@ app.delete('/api/meals/:id', requireUser, async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => app.listen(PORT, () => console.log(`Backend running on port ${PORT}`)));
+  .then(() => app.listen(PORT, () => console.log(`Backend running on port ${PORT}`)))
+  .catch((error) => {
+    console.error('Failed to connect to MongoDB:', error.message);
+    process.exitCode = 1;
+  });

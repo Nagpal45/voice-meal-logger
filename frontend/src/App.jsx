@@ -8,7 +8,7 @@ import {
   useVoiceAssistant,
 } from "@livekit/components-react";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function AgentStatus() {
   const { state, audioTrack } = useVoiceAssistant();
@@ -59,7 +59,10 @@ export default function App() {
   useEffect(() => {
     if (!userId) return;
     fetch(`${API_URL}/api/livekit-token`, { headers: { "X-User-ID": userId } })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Token request failed (${res.status})`);
+        return res.json();
+      })
       .then((data) => setToken(data.token));
   }, [userId]);
 
@@ -71,14 +74,18 @@ export default function App() {
 
       <div className="agent-card">
         {!connected ? (
-          <button className="btn-primary" onClick={() => setConnected(true)}>
-            🎤 Start Voice Agent
+          <button
+            className="btn-primary"
+            onClick={() => setConnected(true)}
+            disabled={!token}
+          >
+            {token ? "🎤 Start Voice Agent" : "Preparing voice agent..."}
           </button>
         ) : (
           <LiveKitRoom
             serverUrl={import.meta.env.VITE_LIVEKIT_URL}
             token={token}
-            connect={true}
+            connect={connected && Boolean(token)}
             audio={true}
             onDisconnected={() => setConnected(false)}
           >

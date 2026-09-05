@@ -21,6 +21,7 @@ services:
     env_file: .env
     environment:
       - VITE_API_URL=http://localhost:5000
+      - VITE_LIVEKIT_URL=${LIVEKIT_URL}
 
   agent:
     build: ./agent

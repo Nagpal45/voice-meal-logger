@@ -1,17 +1,23 @@
 import json
-import asyncio
+from pathlib import Path
+
+from dotenv import load_dotenv
 from livekit.agents import (
     AgentServer,
     AgentSession,
     Agent,
     JobContext,
+    cli,
 )
 from livekit.plugins import openai, silero
 from tools import MealLogger
 
+load_dotenv()
+
 # --- 1. Load Foods Database ---
 try:
-    with open("../backend/foods.json", "r") as f:
+    foods_path = Path(__file__).resolve().parent.parent / "backend" / "foods.json"
+    with foods_path.open() as f:
         food_db = json.load(f)
 except FileNotFoundError:
     food_db = {"foods": []}
@@ -30,10 +36,9 @@ class MealAssistant(Agent):
         {current_meals}
         """
         
-        # Pass the tools using the new fnc_ctx standard
         super().__init__(
             instructions=system_prompt,
-            fnc_ctx=tools
+            tools=[tools.log_meal, tools.edit_meal, tools.delete_meal],
         )
 
 # --- 3. Setup Agent Server ---
@@ -60,15 +65,13 @@ async def meal_agent(ctx: JobContext):
 
     assistant = MealAssistant(current_meals=current_meals, tools=fnc_ctx)
 
-    # --- 5. Start Session & Bind Agent ---
     await session.start(
         room=ctx.room,
-        agent=assistant
+        agent=assistant,
     )
 
     # Instruct the agent to speak first
     await session.generate_reply(instructions="Say hi and ask what they had to eat today.")
 
 if __name__ == "__main__":
-    # Start the server using asyncio
-    asyncio.run(server.start())
+    cli.run_app(server)

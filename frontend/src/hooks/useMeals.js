@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export function useMeals(userId) {
   const [meals, setMeals] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchMeals = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/meals', {
+      const res = await fetch(`${API_URL}/api/meals`, {
         headers: { 'X-User-ID': userId }
       });
+      if (!res.ok) throw new Error(`Meal request failed (${res.status})`);
       const data = await res.json();
       setMeals(data);
     } catch (error) {
@@ -24,7 +27,7 @@ export function useMeals(userId) {
     fetchMeals(); // Initial load
 
     // Listen for Server-Sent Events
-    const eventSource = new EventSource(`http://localhost:5000/api/events?userId=${userId}`);
+    const eventSource = new EventSource(`${API_URL}/api/events?userId=${encodeURIComponent(userId)}`);
     
     eventSource.onmessage = () => {
       console.log("Backend triggered an update. Refreshing meals...");
