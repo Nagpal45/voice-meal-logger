@@ -11,7 +11,7 @@ import {
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function AgentStatus() {
-  const { state, audioTrack } = useVoiceAssistant();
+  const { agent, state, audioTrack } = useVoiceAssistant();
   const statusMap = {
     listening: "Listening...",
     speaking: "Speaking...",
@@ -20,7 +20,9 @@ function AgentStatus() {
 
   return (
     <div>
-      <h3 style={{ color: "#374151" }}>{statusMap[state] || "Connected"}</h3>
+      <h3 style={{ color: "#374151" }}>
+        {agent ? statusMap[state] || "Connected to assistant" : "Waiting for assistant..."}
+      </h3>
       <div
         style={{
           height: "40px",
@@ -46,6 +48,7 @@ export default function App() {
   const [userId, setUserId] = useState("");
   const [token, setToken] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let id = localStorage.getItem("userId");
@@ -63,7 +66,8 @@ export default function App() {
         if (!res.ok) throw new Error(`Token request failed (${res.status})`);
         return res.json();
       })
-      .then((data) => setToken(data.token));
+      .then((data) => setToken(data.token))
+      .catch((requestError) => setError(requestError.message));
   }, [userId]);
 
   const { meals, isLoading } = useMeals(userId);
@@ -73,6 +77,7 @@ export default function App() {
       <h1>🎙️ Voice Meal Logger</h1>
 
       <div className="agent-card">
+        {error && <p role="alert">{error}</p>}
         {!connected ? (
           <button
             className="btn-primary"
@@ -87,7 +92,12 @@ export default function App() {
             token={token}
             connect={connected && Boolean(token)}
             audio={true}
+            onConnected={() => setError("")}
             onDisconnected={() => setConnected(false)}
+            onError={(roomError) => setError(`LiveKit connection failed: ${roomError.message}`)}
+            onMediaDeviceFailure={() =>
+              setError("Microphone access failed. Allow microphone access and try again.")
+            }
           >
             <RoomAudioRenderer />
             <AgentStatus />

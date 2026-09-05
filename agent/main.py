@@ -7,9 +7,11 @@ from livekit.agents import (
     AgentSession,
     Agent,
     JobContext,
+    TurnHandlingOptions,
     cli,
+    inference,
 )
-from livekit.plugins import openai, silero
+from livekit.plugins import silero
 from tools import MealLogger
 
 load_dotenv()
@@ -34,6 +36,9 @@ class MealAssistant(Agent):
         {food_context}
         2. To Edit/Delete, use the exact '_id' from the user's current meals:
         {current_meals}
+        3. Use a tool for every log, edit, or delete. Never claim that a change succeeded unless the tool reports success.
+        4. If a food, quantity, unit, or meal is ambiguous, ask a short clarifying question instead of guessing.
+        5. After a successful change, briefly confirm what changed.
         """
         
         super().__init__(
@@ -57,10 +62,16 @@ async def meal_agent(ctx: JobContext):
 
     # --- 4. Create the Session ---
     session = AgentSession(
-        stt=openai.STT(),
-        llm=openai.LLM(),
-        tts=openai.TTS(),
+        stt=inference.STT(model="deepgram/nova-3", language="multi"),
+        llm=inference.LLM(model="openai/gpt-4.1-mini"),
+        tts=inference.TTS(
+            model="cartesia/sonic-3",
+            voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+        ),
         vad=silero.VAD.load(),
+        turn_handling=TurnHandlingOptions(
+            turn_detection=inference.TurnDetector(),
+        ),
     )
 
     assistant = MealAssistant(current_meals=current_meals, tools=fnc_ctx)

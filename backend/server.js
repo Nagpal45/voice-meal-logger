@@ -3,10 +3,21 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const cors = require('cors');
 const fs = require('fs');
-const { AccessToken } = require('livekit-server-sdk');
+const { AccessToken, AgentDispatchClient, RoomServiceClient } = require('livekit-server-sdk');
 
 const Meal = require('./models/Meal');
 const foodsData = JSON.parse(fs.readFileSync(require('path').join(__dirname, 'foods.json'), 'utf8'));
+const livekitHost = (process.env.LIVEKIT_URL || '').replace(/^ws/, 'http');
+const agentDispatch = new AgentDispatchClient(
+  livekitHost,
+  process.env.LIVEKIT_API_KEY,
+  process.env.LIVEKIT_API_SECRET,
+);
+const roomService = new RoomServiceClient(
+  livekitHost,
+  process.env.LIVEKIT_API_KEY,
+  process.env.LIVEKIT_API_SECRET,
+);
 
 const app = express();
 app.use(cors());
@@ -74,12 +85,31 @@ const calculateMacros = (foodIdOrName, quantity, unitName) => {
 
 // --- Routes ---
 app.get('/api/livekit-token', requireUser, async (req, res) => {
-  const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
-    identity: `user-${req.userId}`,
-  });
-  at.addGrant({ roomJoin: true, room: `room-${req.userId}`, canPublish: true, canSubscribe: true });
-  const token = await at.toJwt();
-  res.json({ token: String(token) });
+  try {
+    const roomName = `room-${req.userId}`;
+    const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
+      identity: `user-${req.userId}`,
+    });
+    at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
+
+    let dispatches;
+    try {
+      dispatches = await agentDispatch.listDispatch(roomName);
+    } catch (error) {
+      if (error.code !== 'not_found') throw error;
+      await roomService.createRoom({ name: roomName, emptyTimeout: 300 });
+      dispatches = [];
+    }
+    if (!dispatches.some((dispatch) => dispatch.agentName === 'meal-agent')) {
+      await agentDispatch.createDispatch(roomName, 'meal-agent');
+    }
+
+    const token = await at.toJwt();
+    res.json({ token: String(token) });
+  } catch (error) {
+    console.error('Failed to create LiveKit token or dispatch agent:', error);
+    res.status(503).json({ error: 'LiveKit is not available' });
+  }
 });
 
 app.get('/api/meals', requireUser, async (req, res) => {
