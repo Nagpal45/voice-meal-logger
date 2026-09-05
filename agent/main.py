@@ -44,6 +44,7 @@ class MealAssistant(Agent):
         3. Use a tool for every log, edit, or delete. Never claim that a change succeeded unless the tool reports success.
         4. If a food, quantity, unit, or meal is ambiguous, ask a short clarifying question instead of guessing.
         5. After a successful change, briefly confirm what changed.
+        6. CRITICAL: You use MongoDB '_id' strings to edit and delete meals. YOU MUST NEVER SPEAK THESE IDs OUT LOUD. Just confirm the food name (e.g., "I've deleted your roti").
         """
         
         super().__init__(

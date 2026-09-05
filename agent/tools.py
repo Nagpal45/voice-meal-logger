@@ -21,7 +21,9 @@ class MealLogger:
             timeout=10,
         )
         if res.status_code == 201:
-            return f"Success! The meal ID is {res.json()['id']}."
+            # Tell the LLM the new ID so it remembers it, but forbid it from speaking it
+            new_id = res.json()['id']
+            return f"Success! The meal ID is {new_id}. NEVER read this ID to the user."
         return f"Failed: {res.json().get('error', 'backend request failed')}"
 
     @function_tool
@@ -64,4 +66,13 @@ class MealLogger:
             headers=self.headers,
             timeout=10,
         )
-        return str(res.json()) if res.status_code == 200 else "[]"
+        if res.status_code != 200:
+            return "No meals are currently logged."
+            
+        meals = res.json()
+        if not meals:
+            return "No meals are currently logged."
+            
+        # Format cleanly so the LLM understands exactly which ID belongs to which food
+        formatted_meals = "\n".join([f"- [ID: {m['_id']}] {m['foodName']}: {m['quantity']} {m['unit']}" for m in meals])
+        return formatted_meals
