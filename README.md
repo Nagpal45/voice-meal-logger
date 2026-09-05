@@ -115,13 +115,13 @@ Authenticate and select your LiveKit project:
 lk cloud auth
 ```
 
-From the repository root, deploy the agent using the LiveKit agent deployment flow:
+From the repository root, deploy the `agent` project using the LiveKit agent deployment flow:
 
 ```bash
-lk agent create
+lk agent create agent --secrets-file .env --ignore-empty-secrets --region ap-south
 ```
 
-When prompted, use `meal-agent` as the agent name. Configure the deployment to use the repository root as its build context and `agent/Dockerfile` as its Dockerfile. This is important because the Dockerfile copies both the agent source and `backend/foods.json`.
+When prompted, use `meal-agent` as the agent name. The `agent` directory is self-contained for LiveKit Cloud source builds, including its copy of `foods.json`.
 
 Add these LiveKit Cloud agent secrets/environment variables:
 
@@ -132,7 +132,15 @@ LIVEKIT_API_KEY=your-livekit-api-key
 LIVEKIT_API_SECRET=your-livekit-api-secret
 ```
 
-The LiveKit agent deployment logs must show `registered worker` with `agent_name` set to `meal-agent`. LiveKit Cloud provides the worker runtime; the exact free-plan usage limits are shown in the LiveKit project dashboard.
+The LiveKit agent deployment logs must show `registered worker` with `agent_name` set to `meal-agent`. View them with:
+
+```bash
+cd agent
+lk agent status --json
+lk agent logs --log-type=deploy
+```
+
+LiveKit Cloud provides the worker runtime; the exact free-plan usage limits are shown in the LiveKit project dashboard.
 
 ### 4. Deploy the frontend on Vercel
 

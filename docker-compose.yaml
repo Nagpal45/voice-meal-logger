@@ -25,8 +25,8 @@ services:
 
   agent:
     build:
-      context: .
-      dockerfile: agent/Dockerfile
+      context: ./agent
+      dockerfile: Dockerfile
     env_file: .env
     environment:
       - BACKEND_URL=http://backend:5000/api/meals
