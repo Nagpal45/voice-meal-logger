@@ -61,9 +61,9 @@ python3 agent/main.py dev
 
 The local agent expects `BACKEND_URL=http://localhost:5000/api/meals`. The Docker Compose configuration supplies the internal equivalent automatically.
 
-## Deploy publicly with Vercel and Render
+## Deploy publicly for free
 
-Vercel hosts the React frontend. The Express backend and LiveKit agent must run as separate always-on services because Vercel functions are not suitable for a persistent LiveKit worker. MongoDB Atlas provides the persistent production database and LiveKit Cloud provides realtime rooms and LiveKit Inference.
+Use Vercel for the React frontend, a Render **Free Web Service** for the Express API, MongoDB Atlas for persistence, and LiveKit Cloud for realtime rooms, LiveKit Inference, and the agent worker.
 
 ### 1. Prepare services
 
@@ -101,11 +101,29 @@ LIVEKIT_API_SECRET=your-livekit-api-secret
 
 Render provides a public URL such as `https://voice-meal-api.onrender.com`. Keep this URL for the Vercel setup. The backend must be reachable over HTTPS because browsers restrict microphone and SSE usage on insecure public origins.
 
-### 3. Deploy the agent on Render
+### 3. Deploy the agent to LiveKit Cloud
 
-Create a **Background Worker** from the same GitHub repository. Use Docker with the repository root as the build context and `agent/Dockerfile` as the Dockerfile. If the Render UI only offers a root directory, leave it empty because the Dockerfile copies both `agent` and `backend/foods.json`.
+Install the LiveKit CLI:
 
-Add these environment variables:
+```bash
+curl -sSL https://get.livekit.io/cli | bash
+```
+
+Authenticate and select your LiveKit project:
+
+```bash
+lk cloud auth
+```
+
+From the repository root, deploy the agent using the LiveKit agent deployment flow:
+
+```bash
+lk agent create
+```
+
+When prompted, use `meal-agent` as the agent name. Configure the deployment to use the repository root as its build context and `agent/Dockerfile` as its Dockerfile. This is important because the Dockerfile copies both the agent source and `backend/foods.json`.
+
+Add these LiveKit Cloud agent secrets/environment variables:
 
 ```text
 BACKEND_URL=https://voice-meal-api.onrender.com/api/meals
@@ -114,7 +132,7 @@ LIVEKIT_API_KEY=your-livekit-api-key
 LIVEKIT_API_SECRET=your-livekit-api-secret
 ```
 
-The worker log must show `registered worker` with `agent_name` set to `meal-agent`. Do not use a Render Web Service for the agent; it is a long-running worker and does not serve HTTP traffic.
+The LiveKit agent deployment logs must show `registered worker` with `agent_name` set to `meal-agent`. LiveKit Cloud provides the worker runtime; the exact free-plan usage limits are shown in the LiveKit project dashboard.
 
 ### 4. Deploy the frontend on Vercel
 
@@ -139,7 +157,7 @@ Redeploy after adding or changing `VITE_*` variables because Vite embeds them du
 
 ### 5. Test the public deployment
 
-Open the Vercel URL over HTTPS, allow microphone access, and start the voice agent. In the Render agent logs, confirm a job appears after the browser requests a token:
+Open the Vercel URL over HTTPS, allow microphone access, and start the voice agent. In the LiveKit agent logs, confirm a job appears after the browser requests a token:
 
 ```text
 received job request
