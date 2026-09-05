@@ -1,4 +1,6 @@
 import json
+import logging
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,19 +13,22 @@ from livekit.agents import (
     cli,
     inference,
 )
-from livekit.plugins import silero
 from tools import MealLogger
 
 load_dotenv()
+logger = logging.getLogger("meal-agent")
 
 # --- 1. Load Foods Database ---
 try:
-    foods_path = Path(__file__).resolve().parent.parent / "backend" / "foods.json"
+    foods_path = Path(os.getenv("FOOD_DB_PATH", "/app/foods.json"))
+    if not foods_path.exists():
+        foods_path = Path(__file__).resolve().parent.parent / "backend" / "foods.json"
     with foods_path.open() as f:
         food_db = json.load(f)
 except FileNotFoundError:
     food_db = {"foods": []}
 
+logger.info("Loaded %d foods from %s", len(food_db.get("foods", [])), foods_path)
 allowed_foods = [f"ID: {f['id']}, Name: {f['name']}, Units: {[u['name'] for u in f['units']]}" for f in food_db.get("foods", [])]
 food_context = "\n".join(allowed_foods)
 
@@ -58,7 +63,7 @@ async def meal_agent(ctx: JobContext):
 
     # Initialize tools with user context
     fnc_ctx = MealLogger(user_id=user_id)
-    current_meals = fnc_ctx.get_current_meals()
+    current_meals = await fnc_ctx.get_current_meals()
 
     # --- 4. Create the Session ---
     session = AgentSession(
@@ -68,7 +73,6 @@ async def meal_agent(ctx: JobContext):
             model="cartesia/sonic-3",
             voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
         ),
-        vad=silero.VAD.load(),
         turn_handling=TurnHandlingOptions(
             turn_detection=inference.TurnDetector(),
         ),

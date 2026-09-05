@@ -1,6 +1,7 @@
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt ./
+COPY agent/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
+COPY agent/main.py agent/tools.py ./
+COPY backend/foods.json /app/foods.json
 CMD ["python", "main.py", "start"]
