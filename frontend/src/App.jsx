@@ -74,7 +74,7 @@ export default function App() {
 
   return (
     <div className="container">
-      <h1>🎙️ Voice Meal Logger</h1>
+      <h1>Voice Meal Logger</h1>
 
       <div className="agent-card">
         {error && <p role="alert">{error}</p>}
@@ -84,7 +84,7 @@ export default function App() {
             onClick={() => setConnected(true)}
             disabled={!token}
           >
-            {token ? "🎤 Start Voice Agent" : "Preparing voice agent..."}
+            {token ? "Start Voice Agent" : "Preparing voice agent..."}
           </button>
         ) : (
           <LiveKitRoom
