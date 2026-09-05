@@ -1,0 +1,35 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    env_file: .env
+    depends_on:
+      - mongo
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    env_file: .env
+    environment:
+      - VITE_API_URL=http://localhost:5000
+
+  agent:
+    build: ./agent
+    env_file: .env
+    environment:
+      - BACKEND_URL=http://backend:5000/api/meals
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
