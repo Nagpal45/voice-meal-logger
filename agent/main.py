@@ -60,7 +60,7 @@ async def meal_agent(ctx: JobContext):
     # Extract anonymous user_id
     user_id = "default-user" 
     if ctx.room.name and ctx.room.name.startswith("room-"):
-        user_id = ctx.room.name.replace("room-", "")
+        user_id = ctx.room.name.removeprefix("room-").split("-session-", 1)[0]
 
     # Initialize tools with user context
     fnc_ctx = MealLogger(user_id=user_id)

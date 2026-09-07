@@ -49,6 +49,7 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     let id = localStorage.getItem("userId");
@@ -59,16 +60,27 @@ export default function App() {
     setUserId(id);
   }, []);
 
-  useEffect(() => {
-    if (!userId) return;
-    fetch(`${API_URL}/api/livekit-token`, { headers: { "X-User-ID": userId } })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Token request failed (${res.status})`);
-        return res.json();
-      })
-      .then((data) => setToken(data.token))
-      .catch((requestError) => setError(requestError.message));
-  }, [userId]);
+  const startVoiceAgent = async () => {
+    if (!userId || starting) return;
+    setStarting(true);
+    setError("");
+    setToken(null);
+    try {
+      const sessionId = crypto.randomUUID();
+      const response = await fetch(
+        `${API_URL}/api/livekit-token?sessionId=${sessionId}`,
+        { headers: { "X-User-ID": userId } },
+      );
+      if (!response.ok) throw new Error(`Token request failed (${response.status})`);
+      const data = await response.json();
+      setToken(data.token);
+      setConnected(true);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const { meals, isLoading } = useMeals(userId);
 
@@ -81,10 +93,10 @@ export default function App() {
         {!connected ? (
           <button
             className="btn-primary"
-            onClick={() => setConnected(true)}
-            disabled={!token}
+            onClick={startVoiceAgent}
+            disabled={!userId || starting}
           >
-            {token ? "Start Voice Agent" : "Preparing voice agent..."}
+            {starting ? "Starting voice agent..." : "Start Voice Agent"}
           </button>
         ) : (
           <LiveKitRoom
@@ -93,7 +105,10 @@ export default function App() {
             connect={connected && Boolean(token)}
             audio={true}
             onConnected={() => setError("")}
-            onDisconnected={() => setConnected(false)}
+            onDisconnected={() => {
+              setConnected(false);
+              setToken(null);
+            }}
             onError={(roomError) => setError(`LiveKit connection failed: ${roomError.message}`)}
             onMediaDeviceFailure={() =>
               setError("Microphone access failed. Allow microphone access and try again.")

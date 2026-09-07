@@ -86,23 +86,19 @@ const calculateMacros = (foodIdOrName, quantity, unitName) => {
 // --- Routes ---
 app.get('/api/livekit-token', requireUser, async (req, res) => {
   try {
-    const roomName = `room-${req.userId}`;
+    const sessionId = req.query.sessionId;
+    if (!/^[a-f0-9-]{16,64}$/i.test(sessionId || '')) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    const roomName = `room-${req.userId}-session-${sessionId}`;
     const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, {
       identity: `user-${req.userId}`,
     });
     at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
 
-    let dispatches;
-    try {
-      dispatches = await agentDispatch.listDispatch(roomName);
-    } catch (error) {
-      if (error.code !== 'not_found') throw error;
-      await roomService.createRoom({ name: roomName, emptyTimeout: 300 });
-      dispatches = [];
-    }
-    if (!dispatches.some((dispatch) => dispatch.agentName === 'meal-agent')) {
-      await agentDispatch.createDispatch(roomName, 'meal-agent');
-    }
+    await roomService.createRoom({ name: roomName, emptyTimeout: 300 });
+    await agentDispatch.createDispatch(roomName, 'meal-agent');
 
     const token = await at.toJwt();
     res.json({ token: String(token) });
